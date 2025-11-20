@@ -1,0 +1,13 @@
+#requirements.txt (for package dependencies)
+streamlit>=1.18
+pandas
+numpy
+altair
+matplotlib
+# Added for Mongo and config parsing
+pymongo
+toml
+plotly
+scipy
+statsmodels
+scikit-learn
