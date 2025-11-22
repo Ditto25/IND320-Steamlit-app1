@@ -11,3 +11,12 @@ plotly
 scipy
 statsmodels
 scikit-learn
+joblib
+seaborn
+python-dateutil
+pytz
+requests
+dnspython
+urllib3
+certifi
+idna

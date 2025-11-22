@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.fft import dct, idct
 from sklearn.neighbors import LocalOutlierFactor
+import matplotlib.dates as mdates # LAGT TIL: For korrekt tidsakseformatering
 
 # Page configuration
 st.set_page_config(
@@ -20,29 +21,36 @@ def get_weather_data():
 
 def detect_temperature_outliers(df, freq_cutoff=0.05, n_std=3):
     """
-    Detect temperature outliers using DCT and SPC
+    Detect temperature outliers using DCT and SPC.
+    Grense-linjene (boundaries) er buet og følger trend/sesongvariasjonen.
+    PLOTTING KORRIGERT for å vise kontinuerlig linje og måneder på x-aksen.
     """
     # Extract temperature data
     temp = df['temperature (°C)'].ffill().bfill().values
-    time = pd.to_datetime(df['time'])
+    time = pd.to_datetime(df['time']) # Bruker kolonnen 'time'
     
     # Apply DCT
     temp_dct = dct(temp, type=2, norm='ortho')
     
-    # High-pass filter
+    # Define cutoff index
     cutoff_index = int(len(temp_dct) * freq_cutoff)
-    temp_dct_filtered = temp_dct.copy()
-    temp_dct_filtered[:cutoff_index] = 0
     
-    # Get SATV
-    satv = idct(temp_dct_filtered, type=2, norm='ortho')
+    # 1. High-pass filter (for SATV/Anomalous part)
+    temp_dct_high_pass = temp_dct.copy()
+    temp_dct_high_pass[:cutoff_index] = 0
+    satv = idct(temp_dct_high_pass, type=2, norm='ortho')
     
-    # Calculate robust statistics
+    # 2. Low-pass filter (for Trend/Seasonality curve) - Nødvendig for buede grenser
+    temp_dct_low_pass = temp_dct.copy()
+    temp_dct_low_pass[cutoff_index:] = 0
+    trend_seasonality = idct(temp_dct_low_pass, type=2, norm='ortho')
+    
+    # Calculate robust statistics on SATV
     median_satv = np.median(satv)
     mad_satv = np.median(np.abs(satv - median_satv))
     std_satv = mad_satv * 1.4826
     
-    # SPC boundaries
+    # SPC flat boundaries (used for detection and curved boundary offset)
     upper_boundary = median_satv + n_std * std_satv
     lower_boundary = median_satv - n_std * std_satv
     
@@ -51,24 +59,37 @@ def detect_temperature_outliers(df, freq_cutoff=0.05, n_std=3):
     n_outliers = np.sum(outliers_mask)
     outlier_percentage = (n_outliers / len(temp)) * 100
     
+    # Buede grenser: Legg til den flate grensen til trend/sesongvariasjonen
+    upper_curve = trend_seasonality + upper_boundary
+    lower_curve = trend_seasonality + lower_boundary
+    
     # Create visualization
     fig, ax = plt.subplots(figsize=(15, 6))
     
-    # Plot normal points
-    ax.plot(time[~outliers_mask], temp[~outliers_mask], 
-            color='blue', linewidth=1, alpha=0.7, label='Normal temperature')
+    # Plot normal points som en sammenhengende linje (KORRIGERT FOR KONTINUITET)
+    ax.plot(time, temp, 
+            color='blue', linewidth=1, alpha=0.5, label='Temperature Series')
     
-    # Plot outliers
+    # Plot outliers (markører over linjen)
     ax.plot(time[outliers_mask], temp[outliers_mask], 
-            'o', color='red', markersize=4, alpha=0.8, label=f'Outliers (n={n_outliers})')
+            'o', color='red', markersize=4, alpha=1.0, label=f'Outliers (n={n_outliers})')
     
-    # Plot boundaries
-    ax.axhline(y=np.mean(temp) + upper_boundary, color='orange', 
-               linestyle='--', linewidth=1.5, alpha=0.7, 
-               label=f'Upper boundary (+{n_std}σ)')
-    ax.axhline(y=np.mean(temp) + lower_boundary, color='orange', 
-               linestyle='--', linewidth=1.5, alpha=0.7, 
-               label=f'Lower boundary (-{n_std}σ)')
+    # Plot buede grenser (KORRIGERT TIL BUEDE LINJER)
+    ax.plot(time, upper_curve, color='orange', 
+            linestyle='--', linewidth=1.5, alpha=0.7, 
+            label=f'Upper boundary (+{n_std}σ)')
+            
+    ax.plot(time, lower_curve, color='orange', 
+            linestyle='--', linewidth=1.5, alpha=0.7, 
+            label=f'Lower boundary (-{n_std}σ)')
+            
+    # KORREKSJON AV X-AKSE FOR MÅNEDER
+    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=6))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+    ax.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
+    
+    # NYTT: Fjerner whitespace/padding på x-aksen
+    ax.set_xlim(time.min(), time.max())
     
     ax.set_xlabel('Time', fontsize=12, fontweight='bold')
     ax.set_ylabel('Temperature (°C)', fontsize=12, fontweight='bold')
@@ -121,16 +142,21 @@ def detect_precipitation_anomalies(df, outlier_proportion=0.01, n_neighbors=50):
     # Create visualization
     fig, ax = plt.subplots(figsize=(15, 6))
     
-    # Convert to proper datetime format
-    time_numeric = time.to_numpy()
-    
     # Plot normal precipitation
-    ax.bar(time_numeric[~anomalies_mask], precip[~anomalies_mask], 
-           width=0.04, color='blue', alpha=0.6, label='Normal precipitation')
+    ax.bar(time[~anomalies_mask], precip[~anomalies_mask], 
+            width=0.04, color='blue', alpha=0.6, label='Normal precipitation')
     
     # Plot anomalies
-    ax.bar(time_numeric[anomalies_mask], precip[anomalies_mask], 
-           width=0.04, color='red', alpha=0.8, label=f'Anomalies (n={n_anomalies})')
+    ax.bar(time[anomalies_mask], precip[anomalies_mask], 
+            width=0.04, color='red', alpha=0.8, label=f'Anomalies (n={n_anomalies})')
+            
+    # KORREKSJON AV X-AKSE FOR MÅNEDER i LOF-plottet
+    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=6))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+    ax.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
+
+    # NYTT: Fjerner whitespace/padding på x-aksen
+    ax.set_xlim(time.min(), time.max())
     
     ax.set_xlabel('Time', fontsize=12, fontweight='bold')
     ax.set_ylabel('Precipitation (mm)', fontsize=12, fontweight='bold')
@@ -188,7 +214,7 @@ def ensure_time_column(df: pd.DataFrame) -> pd.DataFrame:
 
 # --- Apply the fix right after loading the data ---
 if weather_df is not None:
-    weather_df = ensure_time_column(weather_df)
+    weather_df = ensure_time_column(weather_df) 
 
 
 if weather_df is None:
@@ -354,4 +380,3 @@ else:
                 - LOF identifies patterns that deviate from local neighborhood density
                 - More negative LOF scores = more anomalous
                 """)
-    
