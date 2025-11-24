@@ -33,7 +33,7 @@ def load_data():
     """Load and process data from MongoDB"""
     client = get_mongo_client()
     
-    database = client['Database'] 
+    database = client['database'] 
     collection = database['data']
     
     # Fetch all documents from MongoDB
