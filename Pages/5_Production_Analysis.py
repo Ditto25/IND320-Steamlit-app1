@@ -2,13 +2,19 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import StreamlitApplication.Data_loader as load_data    
+import utils.Data_loader as load_data    
+from utils.Data_loader import render_sidebar_info, check_data_requirements
+
+render_sidebar_info()
 
 # Page configuration
 st.set_page_config(
     page_title="🌤️ Weather Data Analysis",
     layout="wide"
 )
+
+if not check_data_requirements(require_weather=True):
+    st.stop()
 
 # ---------------------------
 # Helpers

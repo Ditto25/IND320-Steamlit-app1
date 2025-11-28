@@ -3,6 +3,38 @@ import importlib.util
 import re
 from pathlib import Path
 import streamlit as st
+def check_data_requirements(require_weather=False, require_coordinates=False, require_energy=False):
+    """
+    Sjekker om nødvendige data er tilgjengelig i session state.
+    Stopper kjøringen og viser en advarsel hvis data mangler.
+    
+    Returnerer: True hvis alle krav er møtt, False ellers.
+    """
+    missing = []
+    
+    # Sjekk etter koordinater (satt av kartet)
+    if require_coordinates:
+        if ('map_lat' not in st.session_state or 
+            st.session_state.get('map_lat') is None or 
+            st.session_state.get('map_lat') == 63.5): # Bruk initialverdien som sjekk
+            missing.append("lokasjonsvalg (klikk på kartet)")
+    
+    # Sjekk etter værdata (satt av side 2)
+    if require_weather:
+        if 'weather_data' not in st.session_state or st.session_state.weather_data is None:
+            missing.append("nedlasting av værdata")
+    
+    # Sjekk etter energidata (satt av en data-loader)
+    if require_energy:
+        # Hvis du bruker separate funksjoner for produksjon/forbruk, sjekk begge:
+        if ('production_data' not in st.session_state and 
+            'consumption_data' not in st.session_state):
+            missing.append("energidata")
+    
+    if missing:
+        st.warning(f"⚠️ Mangler: {', '.join(missing)}. Vennligst besøk **Kartvisualisering** eller **Weather Data Downloader** siden først.")
+        return False
+    return True
 
 # Runner page: sidebar navigation that loads page modules dynamically.
 st.set_page_config(page_title="IND320 App", layout="wide")

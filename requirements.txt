@@ -2,9 +2,7 @@
 streamlit>=1.18
 pandas
 numpy
-altair
 matplotlib
-# Added for Mongo and config parsing
 pymongo
 toml
 plotly
@@ -14,9 +12,6 @@ scikit-learn
 joblib
 seaborn
 python-dateutil
-pytz
 requests
-dnspython
-urllib3
-certifi
-idna
+streamlit-folium
+folium
