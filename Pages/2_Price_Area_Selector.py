@@ -15,7 +15,7 @@ Data = {
 
 
 # Download hourly weather data from open-meteo API
-@st.cache_data
+@st.cache_data(ttl=86400)  # cache for 1 day
 def download_hourly_weather_data(longitude, latitude, year):
     """
     Download hourly weather data from Open-Meteo archive (ERA5) for the given year.
