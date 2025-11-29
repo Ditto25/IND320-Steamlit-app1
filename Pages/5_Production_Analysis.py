@@ -1,20 +1,14 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import utils.Data_loader as load_data    
-from utils.Data_loader import render_sidebar_info, check_data_requirements
-
-render_sidebar_info()
+import plotly.graph_objs as go
+import utils.Data_loader as load_data
 
 # Page configuration
 st.set_page_config(
     page_title="🌤️ Weather Data Analysis",
     layout="wide"
 )
-
-if not check_data_requirements(require_weather=True):
-    st.stop()
 
 # ---------------------------
 # Helpers
@@ -28,54 +22,38 @@ def get_weather_data():
     except Exception:
         return None
 
-
 def ensure_time_column(df: pd.DataFrame) -> pd.DataFrame:
     """Ensure there is a 'time' column of datetime64[ns]."""
     df = df.copy()
-
-    # Case 1: Already has 'time'
     if 'time' in df.columns:
         df['time'] = pd.to_datetime(df['time'], errors='coerce', utc=True)
         return df
-
-    # Case 2: Try common timestamp-like names
     for candidate in ['timestamp', 'datetime', 'date', 'period_start', 'valid_time', 'startTime', 'startTime_parsed']:
         if candidate in df.columns:
             df['time'] = pd.to_datetime(df[candidate], errors='coerce', utc=True)
             return df
-
-    # Case 3: Maybe index is datetime
     if isinstance(df.index, pd.DatetimeIndex) or np.issubdtype(df.index.dtype, np.datetime64):
         df = df.reset_index()
         df.rename(columns={df.columns[0]: 'time'}, inplace=True)
         df['time'] = pd.to_datetime(df['time'], errors='coerce', utc=True)
         return df
-
     st.warning("⚠️ No 'time' or timestamp-like column found in DataFrame.")
     return df
-
 
 def get_first_month_data(df: pd.DataFrame, column: str, max_points: int = 31 * 24):
     """Get data for the first month (up to max_points) for the specified column."""
     df = df.copy()
     df = ensure_time_column(df)
-
     if 'time' not in df.columns:
         st.error("Cannot extract first month data: No 'time' column found.")
         return pd.DataFrame(columns=['time', column])
-
     df = df.sort_values('time')
     start_time = df['time'].min()
     end_time = start_time + pd.Timedelta(days=31)
-
     monthly_data = df[(df['time'] >= start_time) & (df['time'] < end_time)][['time', column]]
-
-    # Limit to max_points
     if len(monthly_data) > max_points:
         monthly_data = monthly_data.head(max_points)
-
     return monthly_data
-
 
 # ---------------------------
 # Main Page
@@ -128,26 +106,31 @@ else:
     # Filter by month range
     df_filtered = data[(data['year_month'] >= month_range[0]) & (data['year_month'] <= month_range[1])]
 
-    # Plot selected columns (multiple allowed)
+    # Plot selected columns (multiple allowed) using Plotly
     st.subheader("📈 Weather Data Visualization")
-    plt.figure(figsize=(10, 4))
-    for i, col_name in enumerate(selected_columns):
-        plt.plot(df_filtered['time'], df_filtered[col_name], label=col_name, linewidth=1)
-    plt.title(f"{' ,'.join(selected_columns)} over Time ({month_range[0]} → {month_range[1]})")
-    plt.xlabel("Time")
-    plt.ylabel("Value")
-    plt.xticks(rotation=45)
-    if len(selected_columns) > 1:
-        plt.legend(loc='upper right', fontsize='small')
-    plt.tight_layout()
-    st.pyplot(plt)
+    fig = go.Figure()
+    for col_name in selected_columns:
+        fig.add_trace(go.Scatter(
+            x=df_filtered['time'],
+            y=df_filtered[col_name],
+            mode='lines',
+            name=col_name
+        ))
+    fig.update_layout(
+        title=f"{' ,'.join(selected_columns)} over Time ({month_range[0]} → {month_range[1]})",
+        xaxis_title="Time",
+        yaxis_title="Value",
+        legend=dict(font=dict(size=10)),
+        margin=dict(l=20, r=20, t=40, b=20),
+        height=400
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
     # Statistics for selected columns
     st.markdown("---")
     st.subheader("📊 Basic Statistics")
     st.dataframe(df_filtered[selected_columns].describe())
 
-    # Stop further execution to avoid duplicate widgets/plots later in the file
     st.stop()
     if 'selected_area' in st.session_state:
         sel_city = st.session_state.get('selected_city', '')
@@ -167,16 +150,23 @@ else:
         # Filter by month range
         df_filtered = data[(data['year_month'] >= month_range[0]) & (data['year_month'] <= month_range[1])]
 
-        # ✅ Plot
+        # ✅ Plot using Plotly
         st.subheader("📈 Weather Data Visualization")
-        plt.figure(figsize=(10, 4))
-        plt.plot(df_filtered['time'], df_filtered[selected_column], linewidth=1)
-        plt.title(f"{selected_column} over Time ({month_range[0]} → {month_range[1]})")
-        plt.xlabel("Time")
-        plt.ylabel(selected_column)
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        st.pyplot(plt)
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=df_filtered['time'],
+            y=df_filtered[selected_column],
+            mode='lines',
+            name=selected_column
+        ))
+        fig.update_layout(
+            title=f"{selected_column} over Time ({month_range[0]} → {month_range[1]})",
+            xaxis_title="Time",
+            yaxis_title=selected_column,
+            margin=dict(l=20, r=20, t=40, b=20),
+            height=400
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
         # ✅ Statistics
         st.markdown("---")

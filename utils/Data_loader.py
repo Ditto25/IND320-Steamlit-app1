@@ -27,44 +27,42 @@ def area_to_geoplacement(area):
     return geo_dict.get(area, geo_dict['NO1'])['long'], geo_dict.get(area, geo_dict['NO1'])['lat']
 def render_sidebar_info():
     """
-    Viser app-metadata, hjelp, og kanskje noen globale input-felt i 
-    Streamlits sidepanel.
+    Shows application info and global settings in the sidebar.
     """
     with st.sidebar:
-        # Hovedseksjon for app-informasjon
-        st.header("⚙️ Applikasjonskontroller")
+        # Main section for app information
+        st.header("⚙️ Application Controls")
         st.markdown(
             """
-            Dette sidepanelet viser informasjon om dataene og lar deg
-            sette globale parametere.
+            This sidebar shows information about the data and allows you to
+            set global parameters.
             """
         )
 
-        # Datainnlastingsstatus (Kan være dynamisk i en mer kompleks app)
+        # Data loading status (Can be dynamic in a more complex app)
         st.subheader("Data Status")
         if 'production_data' in st.session_state and st.session_state.production_data is not None:
             data_points = len(st.session_state.production_data)
             start_date = st.session_state.production_data['startTime_parsed'].min().strftime('%Y-%m-%d')
             end_date = st.session_state.production_data['endTime_parsed'].max().strftime('%Y-%m-%d')
             
-            st.success(f"✅ Energidata lastet!")
-            st.caption(f"Periode: {start_date} til {end_date}")
-            st.caption(f"Antall punkter: {data_points:,}")
+            st.success(f"Data loaded!")
+            st.caption(f"Period: {start_date} to {end_date}")
+            st.caption(f"Number of points: {data_points:,}")
         else:
-             st.warning("⚠️ Ingen energidata lastet.")
+             st.warning("⚠️ No energy data loaded.")
 
-
-        # Eksempel på et globalt inputfelt i sidepanelet
-        st.subheader("Analyseinnstillinger")
+        # Example of a global input field in the sidebar
+        st.subheader("Analysis Settings")
         global_sample_rate = st.selectbox(
-            "Prøvetakingsfrekvens",
+            "Sampling Rate for Analysis",
             ["Time", "Day", "Week"],
             key="global_sample_rate_sidebar"
         )
-        st.info(f"Analyse kjører på {global_sample_rate} basis.")
+        st.info(f"Analysis runs on a {global_sample_rate} basis.")
         
         st.markdown("---")
-        st.caption("Utviklet for Avansert Tidsserieanalyse.")
+        st.caption("Developed for Advanced Time Series Analysis.")
 
 # --- MAIN CLASS FOR DATA LOADING ---
 

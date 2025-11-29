@@ -12,6 +12,8 @@ from utils.Data_loader import (
 
 # ---------- Helper functions ---------- #
 
+st.set_page_config(page_title="Energy Forecasting", layout="wide")
+
 def get_target_series(df: pd.DataFrame, area: str, group: str) -> pd.Series:
     """
     Filter Elhub data for one price area and one group, return a clean hourly series.

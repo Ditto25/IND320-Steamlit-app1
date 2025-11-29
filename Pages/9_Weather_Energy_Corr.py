@@ -3,12 +3,15 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+
 from utils.Data_loader import (
     load_open_meteo_api,
     load_elhub_production_data,
     load_elhub_consumption_data,
 )
 
+
+st.set_page_config(page_title="Weather and Energy Correlation", layout="wide")
 # ------------------------------------------------------------------
 # Configuration and helpers
 # ------------------------------------------------------------------

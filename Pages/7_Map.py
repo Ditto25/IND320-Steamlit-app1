@@ -1,20 +1,17 @@
 from __future__ import annotations
-
 from copy import deepcopy
 from datetime import date, timedelta
-
 import pandas as pd
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
-
 from utils.Data_loader import (
     load_pricearea_geojson,
     load_elhub_production_data,
     load_elhub_consumption_data,
 )
 
-
+st.set_page_config(page_title="Map and Selectors", layout="wide")
 # Property name in GeoJSON: properties["ElSpotOmr"] = "NO 2"
 PRICEAREA_GEO_KEY = "ElSpotOmr"
 VALID_PRICEAREAS = {"NO1", "NO2", "NO3", "NO4", "NO5"}
@@ -141,7 +138,7 @@ def build_map(
             fill_opacity=0.6,
             nan_fill_opacity=0.0,
             line_opacity=0.0,
-            legend_name="Mean quantity (kWh) in selected interval",
+            legend_name="Mean quantity (GWh) in selected interval",
         ).add_to(m)
 
     # Outlines + tooltip, highlight selected price area
@@ -157,7 +154,7 @@ def build_map(
         style_function=style_function,
         tooltip=folium.features.GeoJsonTooltip(
             fields=["pricearea_clean", "mean_kwh"],
-            aliases=["Price area", "Mean kWh"],
+            aliases=["Price area", "Mean quantity (GWh)"],
             localize=True,
             sticky=False,
         ),
@@ -255,9 +252,12 @@ def main():
             end=end_ts.strftime('%Y-%m-%d')
        )    
        df_mean =df_mean.copy()
+       df_mean = df_mean.rename(columns={"pricearea": "Price Area"})
+       df_mean = df_mean.drop(columns=["mean_kwh"])
        df_mean = df_mean.rename(columns={"mean_gwh": dynamic_col_name})
        st.caption("Mean quantity per price area in selected interval (GWh):")
        st.dataframe(df_mean, use_container_width=True, hide_index=True)
+       df_mean = df_mean.rename(columns={"Price Area": "pricearea", dynamic_col_name: "mean_kwh"})
     # --- Map + click handling ---
     clicked_coord = st.session_state.get("map_coord")
 

@@ -1,7 +1,5 @@
 from __future__ import annotations
-
 from typing import Tuple, List
-
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -13,6 +11,7 @@ from utils.Snow_drift import (
     compute_average_sector,
 )
 
+st.set_page_config(page_title="Snow Drift Analysis", layout="wide")
 # -----------------------------
 # Helpers
 # -----------------------------

@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.fft import dct, idct
 from sklearn.neighbors import LocalOutlierFactor
-import matplotlib.dates as mdates 
+import matplotlib.dates as mdates
 
 # Page configuration
 st.set_page_config(

@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import toml
@@ -8,7 +7,7 @@ import numpy as np
 from functools import lru_cache
 import plotly.graph_objs as go
 import plotly.subplots as sp
-from utils.Data_loader import render_sidebar_info # OBS: Må importeres eller mockes hvis den ikke finnes
+
 
 
 # Optional imports for STL
@@ -114,7 +113,7 @@ def stl_analysis(df, price_area, production_group, period=24, seasonal=7, trend=
                            subplot_titles=("Original Series", "Trend", "Seasonal", "Residual"))
 
     # 1. Original Series
-    fig.add_trace(go.Scatter(x=ts.index, y=ts.values, mode='lines', name='Original', line=dict(color='black', width=1)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=ts.index, y=ts.values, mode='lines', name='Original', line=dict(color='orange', width=1)), row=1, col=1)
 
     # 2. Trend
     fig.add_trace(go.Scatter(x=result.trend.index, y=result.trend.values, mode='lines', name='Trend', line=dict(color='blue')), row=2, col=1)
