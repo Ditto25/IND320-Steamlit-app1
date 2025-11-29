@@ -1,85 +1,11 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
-
+from utils.Data_loader import get_mongo_client, load_data
 st.set_page_config(page_title="Energy Production Analysis", layout="wide")
 
 st.title("Energy Production Analysis")
 
-# MongoDB connection
-@st.cache_resource
-def get_mongo_client():
-    """Create and return MongoDB client"""
-    db_user = st.secrets["database"]["db_user"]
-    secret = st.secrets["database"]["secret"]
-
-    uri = f"mongodb+srv://{db_user}:{secret}@cluster1.g046i3t.mongodb.net/?appName=Cluster1"
-    client = MongoClient(uri, server_api=ServerApi('1'))
-    
-    # Test connection
-    try:
-        client.admin.command('ping')
-    except Exception as e:
-        st.error(f"MongoDB connection failed: {e}")
-    
-    return client
-
-# Load and process data
-@st.cache_data
-def load_data():
-    """Load and process data from MongoDB"""
-    client = get_mongo_client()
-    
-    database = client['Database'] 
-    collection = database['data']
-    
-    # Fetch all documents from MongoDB
-    records = list(collection.find({}, {'_id': 0}))
-    
-    if not records:
-        st.error("No data found in MongoDB! Please run your notebook to insert data first.")
-        st.stop()
-    
-    # Convert to DataFrame
-    df = pd.DataFrame(records)
-    
-    # Clean the data - remove any records with list or invalid values
-    def is_valid_record(row):
-        """Check if a record has valid data types"""
-        for col in ['startTime', 'endTime', 'lastUpdatedTime', 'priceArea', 'productionGroup', 'quantityKwh']:
-            if col in row and isinstance(row[col], list):
-                return False
-        return True
-    
-    # Filter out invalid records
-    valid_indices = df.apply(is_valid_record, axis=1)
-    initial_count = len(df)
-    df = df[valid_indices].reset_index(drop=True)
-    
-    if len(df) < initial_count:
-        st.warning(f"Filtered out {initial_count - len(df)} invalid records from the dataset.")
-    
-    # Convert date columns to datetime (with error handling)
-    try:
-        df['startTime'] = pd.to_datetime(df['startTime'], errors='coerce')
-        df['endTime'] = pd.to_datetime(df['endTime'], errors='coerce')
-        df['lastUpdatedTime'] = pd.to_datetime(df['lastUpdatedTime'], errors='coerce')
-        
-        # Remove rows where datetime conversion failed
-        df = df.dropna(subset=['startTime']).reset_index(drop=True)
-        
-        # Add month columns
-        df['month'] = df['startTime'].dt.month
-        df['month_name'] = df['startTime'].dt.strftime('%B')
-        
-    except Exception as e:
-        st.error(f"Error processing datetime columns: {e}")
-        st.stop()
-    
-    return df
 
 # Load data
 df = load_data()

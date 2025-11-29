@@ -9,7 +9,7 @@ from functools import lru_cache
 import plotly.graph_objs as go
 import plotly.subplots as sp
 from utils.Data_loader import render_sidebar_info # OBS: Må importeres eller mockes hvis den ikke finnes
-from scipy import signal # Importeres her siden den brukes direkte
+
 
 # Optional imports for STL
 try:
