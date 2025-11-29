@@ -30,7 +30,7 @@ except Exception:
 
 
 # --- Initial Configuration ---
-render_sidebar_info() # KALL DEN HER
+
 st.set_page_config(page_title="Advanced Time Series Analysis", layout="wide")
 st.title("Avansert Analyse")
 
