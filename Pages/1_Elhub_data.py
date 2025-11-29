@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from utils.Data_loader import get_mongo_client, load_data
+from utils.Data_loader import  load_data
 st.set_page_config(page_title="Energy Production Analysis", layout="wide")
 
 st.title("Energy Production Analysis")
