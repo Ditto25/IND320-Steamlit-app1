@@ -100,23 +100,6 @@ def render_sidebar_info():
             return None
     
 
-# MongoDB connection
-@st.cache_resource(ttl=3600, show_spinner="Connecting to MongoDB...")
-def get_mongo_client():
-    """Create and return MongoDB client"""
-    db_user = st.secrets["database"]["db_user"]
-    secret = st.secrets["database"]["secret"]
-
-    uri = f"mongodb+srv://{db_user}:{secret}@cluster1.g046i3t.mongodb.net/?appName=Cluster1"
-    client = MongoClient(uri, server_api=ServerApi('1'))
-    
-    # Test connection
-    try:
-        client.admin.command('ping')
-    except Exception as e:
-        st.error(f"MongoDB connection failed: {e}")
-    
-    return client
 
 
 # Load and process data
@@ -172,6 +155,23 @@ def load_data():
         st.stop()
     
     return df
+# MongoDB connection
+@st.cache_resource(ttl=3600, show_spinner="Connecting to MongoDB...")
+def get_mongo_client():
+    """Create and return MongoDB client"""
+    db_user = st.secrets["database"]["db_user"]
+    secret = st.secrets["database"]["secret"]
+
+    uri = f"mongodb+srv://{db_user}:{secret}@cluster1.g046i3t.mongodb.net/?appName=Cluster1"
+    client = MongoClient(uri, server_api=ServerApi('1'))
+    
+    # Test connection
+    try:
+        client.admin.command('ping')
+    except Exception as e:
+        st.error(f"MongoDB connection failed: {e}")
+    
+    return client
 
 # Cache function for loading consumption data from MongoDB (power / consumption_2021_2024_hourly)
 # I utils/Data_loader.py
