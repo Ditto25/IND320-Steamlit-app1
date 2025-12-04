@@ -1,4 +1,3 @@
-# app.py (Place this file in your root directory)
 
 import streamlit as st
 

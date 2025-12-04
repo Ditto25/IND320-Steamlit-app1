@@ -57,7 +57,33 @@ def discover_pages():
 			candidates.append((module_name, display, str(py)))
 	return candidates
 
+# streamer_app.py (Legg til denne koden)
+# ... etter 'pages = discover_pages()'
 
+# --- Bygg Sidefelt Navigasjon ---
+st.sidebar.title("App Navigation 🗺️")
+
+# Legg til en 'Home' knapp/lenke
+if st.sidebar.button("🏠 Home", key="nav_home"):
+    st.session_state['page'] = 'Home'
+    st.experimental_rerun()
+    
+st.sidebar.markdown("---")
+st.sidebar.markdown("### Analysis Modules")
+
+# Generer en knapp for hver oppdagede side
+for mod_name, display, path in pages:
+    emoji = emoji_map.get(path, emoji_for(display))
+    # Bruk en knapp for å navigere. Hvis den er klikket, oppdater session state og kjør appen på nytt.
+    if st.sidebar.button(f"{emoji} {display}", key=f"nav_{display}"):
+        st.session_state['page'] = path
+        st.experimental_rerun() # Dette trigger sidebyttet
+
+st.sidebar.markdown("---")
+# Legg til sjekk for datakrav (valgfritt, men nyttig for brukeren)
+# Du kan inkludere check_data_requirements her, men koden nedenfor er for demonstrasjon.
+
+# ... Før 'current = st.session_state.get('page', 'Home')'
 # Simple emoji chooser based on page display name keywords (fallback)
 def emoji_for(display: str) -> str:
 	mapping = {
