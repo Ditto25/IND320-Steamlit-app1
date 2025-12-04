@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 Complete script for calculating annual snow drifting using Tabler (2003)
@@ -160,44 +159,41 @@ def compute_average_sector(df):
     avg_sectors = np.mean(sectors_list, axis=0)
     return avg_sectors
 
+
 def plot_rose(avg_sector_values, overall_avg):
-    """
-    Create a canvas with a polar (wind rose) plot showing the average directional breakdown.
-    
-    Parameters:
-      avg_sector_values: list of 16 average transport values (kg/m) for the sectors.
-      overall_avg: overall average yearly snow transport (Qt in kg/m) across all seasons.
-                   This value will be converted to tonnes/m.
-    """
     fig, ax = plt.subplots(subplot_kw={'projection': 'polar'}, figsize=(8, 8))
     num_sectors = 16
-    # Compute bin centers: each bin is 360/16 = 22.5° wide
     angles = np.deg2rad(np.arange(0, 360, 360/num_sectors))
     
-    # Convert the sector values from kg/m to tonnes/m
     avg_sector_values_tonnes = np.array(avg_sector_values) / 1000.0
 
-    ax.bar(angles, avg_sector_values_tonnes, width=np.deg2rad(360/num_sectors),
-           align='center', edgecolor='black')
-    
-    # Ensure north is at the top and the direction is clockwise.
+    ax.bar(
+        angles,
+        avg_sector_values_tonnes,
+        width=np.deg2rad(360 / num_sectors),
+        align='center',
+        edgecolor='black'
+    )
+
     ax.set_theta_zero_location("N")
     ax.set_theta_direction(-1)
-    
-    # Set custom tick labels for each sector.
+
     directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
                   'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
+    
     ax.set_xticks(angles)
     ax.set_xticklabels(directions)
-    
-    # Convert overall average from kg/m to tonnes/m and format with one decimal.
+
     overall_tonnes = overall_avg / 1000.0
     ax.set_title(
-        f"Average Directional Distribution of Snow Transport\nOverall Average Qt: {overall_tonnes:,.1f} tonnes/m",
+        f"Average Directional Distribution of Snow Transport\n"
+        f"Overall Average Qt: {overall_tonnes:,.1f} tonnes/m",
         va='bottom'
     )
+
     plt.tight_layout()
-    plt.show()
+
+    return fig   # <-- IMPORTANT
 
 def compute_fence_height(Qt, fence_type):
     """

@@ -16,7 +16,8 @@ from utils.Data_loader import (
     load_pricearea_geojson,
     load_elhub_production_data,
     load_elhub_consumption_data,
-    load_open_meteo_api,
+    # Sørg for at denne funksjonen laster ned data for et gitt ÅR
+    load_open_meteo_api, 
 )
 from utils.Snow_drift import (
     compute_yearly_results,
@@ -26,6 +27,8 @@ from utils.Snow_drift import (
 # -----------------------------------------------------------------------------
 # 1. PAGE CONFIG & CONSTANTS
 # -----------------------------------------------------------------------------
+# Dette er Page-modulen: Map_Snow_Drift_Analysis.py
+# (Jeg antar at koden du sendte er main-funksjonen til denne filen)
 st.set_page_config(page_title="Map & Snow Drift Analysis", layout="wide")
 
 PRICEAREA_GEO_KEY = "ElSpotOmr"
@@ -33,8 +36,8 @@ VALID_PRICEAREAS = {"NO1", "NO2", "NO3", "NO4", "NO5"}
 
 # -----------------------------------------------------------------------------
 # 2. HELPER FUNCTIONS (MAP & DATA)
+# ... (mean_by_pricearea, build_map er uendret) ...
 # -----------------------------------------------------------------------------
-
 def get_groups(kind: str) -> list[str]:
     """Return sorted list of groups for the given kind."""
     if kind == "production":
@@ -110,12 +113,12 @@ def build_map(
 
     
     m = folium.Map(
-        location=[60.0, 10.0],          # Sentrert over SVERIGE
+        location=[60.0, 10.0],          # Sentrert over Norge
         zoom_start=4, 
-        min_zoom=3,                 # Hindrer å zoome for langt inn
-        max_zoom=12,                 # Hindrer å zoome for langt ut
-        max_bounds=False,            # Låser panorering til bounds
-        min_lat=57, max_lat=72,     # Setter harde grenser
+        min_zoom=3,                     # Hindrer å zoome for langt inn
+        max_zoom=12,                    # Hindrer å zoome for langt ut
+        max_bounds=False,               # Låser panorering til bounds
+        min_lat=57, max_lat=72,         # Setter harde grenser
         min_lon=2, max_lon=33,
         tiles="cartodbpositron"
     )
@@ -173,21 +176,45 @@ def download_weather_for_seasons(
     start_season: int,
     end_season: int,
 ) -> pd.DataFrame:
-    """Download hourly weather data from Open-Meteo."""
-    years: List[int] = list(range(start_season, end_season + 2))
+    
+    # 1. Bestem det siste gyldige kalenderåret
+    current_year = date.today().year
+    
+    # Vi kan kun laste ned data for kalenderår til og med inneværende år.
+    last_valid_year = current_year 
+
+    # 2. Definer hvilke år vi skal hente basert på sesong og begrensninger
+    # Sesonger: fra start_season til end_season (f.eks. 2022 til 2024)
+  
+    # Vi må filtrere bort år som er større enn last_valid_year
+    years: List[int] = []
+    for year in range(start_season, end_season + 1):
+        if year <= last_valid_year:
+            years.append(year)
+        else:
+            # Ignorerer fremtidige år
+            st.warning(f"Skipper år {year} da det er i fremtiden.")
+
+
     frames: List[pd.DataFrame] = []
 
     for year in years:
-        df_year = load_open_meteo_api(latitude=latitude, longitude=longitude, year=year)
-        frames.append(df_year)
+        try:
+            # load_open_meteo_api skal hente et fullt år (start 1. jan, slutt 31. des)
+            df_year = load_open_meteo_api(latitude=latitude, longitude=longitude, year=year)
+            frames.append(df_year)
+        except Exception as e:
+            # Hvis API-et feiler for et år, for eksempel fordi det er for nylig og ufullstendig,
+            # logger vi advarselen og går videre.
+            st.warning(f"Kunne ikke laste data for år {year}: {e}") 
 
+    # ... (resten av funksjonen er den samme) ...
     if not frames:
         return pd.DataFrame()
 
     df_all = pd.concat(frames).sort_index()
     df_all = df_all[~df_all.index.duplicated(keep="first")]
     return df_all
-
 def prepare_snowdrift_dataframe(
     df_weather: pd.DataFrame,
     start_season: int,
@@ -197,7 +224,7 @@ def prepare_snowdrift_dataframe(
     if df_weather.empty:
         return pd.DataFrame()
 
-    df = df_weather.copy().reset_index()  # index -> 'time'
+    df = df_weather.copy().reset_index()    # index -> 'time'
     df.rename(
         columns={
             "time": "time",
@@ -214,6 +241,7 @@ def prepare_snowdrift_dataframe(
         lambda dt: dt.year if dt.month >= 7 else dt.year - 1
     )
 
+    # Filtrerer kun for de valgte sesongene
     mask = (df["season"] >= start_season) & (df["season"] <= end_season)
     df = df.loc[mask].reset_index(drop=True)
     return df
@@ -240,7 +268,7 @@ def plot_wind_rose(avg_sector_values: np.ndarray, overall_avg_kgm: float):
 
     values_tonnes = np.array(avg_sector_values) / 1000.0
     directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", 
-                  "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+                      "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
     theta_deg = np.linspace(0, 360, num_sectors, endpoint=False)
 
     fig = go.Figure(
@@ -286,7 +314,6 @@ def main():
     with st.expander("Map Settings (Data Selection)", expanded=True):
         col1, col2 = st.columns(2)
         with col1:
-            # Added unique keys to widgets to prevent DuplicateElementId error
             data_type_label = st.radio("Data type", ["Production", "Consumption"], horizontal=True, key="map_data_type")
             kind = "production" if data_type_label == "Production" else "consumption"
             
@@ -303,7 +330,6 @@ def main():
                 st.warning("No groups found.")
                 group = None
             else:
-                # Added unique key
                 group = st.selectbox("Group", groups, key="map_group_select")
 
             selected_pricearea = st.session_state.get("pricearea", "NO2")
@@ -311,16 +337,17 @@ def main():
                 selected_pricearea = "NO2"
 
         with col2:
-            max_date_limit = date(2024, 12, 31)
+            # 🚨 FIX 1: Setter max dato til I DAG
+            MAX_DATE_LIMIT = date.today()
             
             start_date = st.date_input(
                 "Start date", 
                 value=max(date(2023, 1, 1), min_date_limit), 
                 min_value=min_date_limit, 
-                max_value=max_date_limit,
-                key="map_start_date" # Added key
+                max_value=MAX_DATE_LIMIT,
+                key="map_start_date"
             )
-            days = st.slider("Interval length (days)", 1, 365, 30, key="map_interval") # Added key
+            days = st.slider("Interval length (days)", 1, 365, 30, key="map_interval")
 
     # 1.3 Compute Map Data
     start_ts = pd.Timestamp(start_date)
@@ -333,9 +360,8 @@ def main():
 
     # 1.4 Render Map
     st.subheader("Map")
-    st.caption("Click anywhere on the map to analyze snow drift for that location.")
+    st.caption("Click anywhere on the map to select a location for snow drift analysis.")
     
-    # Retrieve previous click from session state
     clicked_coord = st.session_state.get("map_coord")
     
     folium_map = build_map(
@@ -353,7 +379,6 @@ def main():
         click = map_state["last_clicked"]
         new_coord = {"lat": click["lat"], "lon": click["lng"]}
         
-        # Only update if changed to avoid unnecessary re-runs
         if new_coord != clicked_coord:
             st.session_state["map_coord"] = new_coord
             st.rerun()
@@ -378,15 +403,17 @@ def main():
     with col_s1:
         st.subheader("Settings")
         
-        MAX_SEASON = 2024
+        # 🚨 FIX 2: Setter MAX_SEASON til inneværende år
+        MAX_SEASON = date.today().year-1
         default_start = max(min_season_limit, 2022) 
         
         start_season, end_season = st.slider(
             "Season range", 
             min_value=min_season_limit, 
             max_value=MAX_SEASON, 
-            value=(default_start, 2023),
-            key="snow_season_slider" # Added key
+            # Endrer default-verdien til å inkludere 2024 hvis mulig
+            value=(default_start, max(2023, MAX_SEASON)), 
+            key="snow_season_slider"
         )
         
         with st.expander("Model Parameters", expanded=False):
@@ -400,6 +427,7 @@ def main():
         if compute_btn:
             with st.spinner(f"Downloading weather data for {lat:.2f}, {lon:.2f}..."):
                 try:
+                    # Bruker den justerte download_weather_for_seasons som tolererer feil
                     df_weather = download_weather_for_seasons(lat, lon, start_season, end_season)
                 except Exception as exc:
                     st.error(f"Error downloading data: {exc}")
