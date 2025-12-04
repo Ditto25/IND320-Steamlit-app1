@@ -128,7 +128,7 @@ st.sidebar.title("Navigation")
 # Home-knapp
 if st.sidebar.button("🏠 Home", key="home_button"):
     st.session_state['page'] = "Home"
-    st.experimental_rerun()
+    st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Analysis Modules")
@@ -141,7 +141,7 @@ for mod_name, display, path in pages:
     # Bruk 'path' i key for å sikre unikhet
     if st.sidebar.button(f"{emoji} {display}", key=f"btn_{path}"): 
         st.session_state['page'] = path
-        st.experimental_rerun()
+        st.rerun()
 st.sidebar.markdown("---")
 
 
