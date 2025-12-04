@@ -179,4 +179,25 @@ with col2:
             st.info("No smaller contributors below threshold to display.")
     else:
         st.warning("No data available for the selected filters.")
-        
+
+with st.expander("Data Source Information"):
+    st.markdown("""
+    The energy production data is sourced from Elhub and covers various production groups across different price areas in Norway. The dataset represents energy production in 2021 only. 
+    The data is aggregated on an hourly basis and includes information on the quantity of energy produced (in kWh) by each production group.
+    
+    **Price Areas:**
+    - NO1: Oslo
+    - NO2: Kristiansand
+    - NO3: Trondheim
+    - NO4: Tromsø
+    - NO5: Bergen
+    
+    **Production Groups Include:**
+    - Hydropower
+    - Wind Power
+    - Thermal Power
+    - Solar Power
+    - Other renewable and non-renewable sources
+
+    This analysis allows users to explore the distribution and trends of energy production across different regions and types of energy sources.
+    """)

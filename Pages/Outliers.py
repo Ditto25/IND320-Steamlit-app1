@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.fft import dct, idct
 from sklearn.neighbors import LocalOutlierFactor
-import matplotlib.dates as mdates
+import plotly.graph_objects as go
+from utils.Data_loader import render_weather_selector
 
+render_weather_selector()
 # Page configuration
 st.set_page_config(
     page_title="Weather Anomalies Detection",
@@ -22,12 +23,11 @@ def get_weather_data():
 def detect_temperature_outliers(df, freq_cutoff=0.05, n_std=3):
     """
     Detect temperature outliers using DCT and SPC.
-    Grense-linjene (boundaries) er buet og følger trend/sesongvariasjonen.
-    PLOTTING KORRIGERT for å vise kontinuerlig linje og måneder på x-aksen.
+    Returns a Plotly figure.
     """
     # Extract temperature data
     temp = df['temperature (°C)'].ffill().bfill().values
-    time = pd.to_datetime(df['time']) # Bruker kolonnen 'time'
+    time = pd.to_datetime(df['time'])
     
     # Apply DCT
     temp_dct = dct(temp, type=2, norm='ortho')
@@ -40,7 +40,7 @@ def detect_temperature_outliers(df, freq_cutoff=0.05, n_std=3):
     temp_dct_high_pass[:cutoff_index] = 0
     satv = idct(temp_dct_high_pass, type=2, norm='ortho')
     
-    # 2. Low-pass filter (for Trend/Seasonality curve) - Nødvendig for buede grenser
+    # 2. Low-pass filter (for Trend/Seasonality curve)
     temp_dct_low_pass = temp_dct.copy()
     temp_dct_low_pass[cutoff_index:] = 0
     trend_seasonality = idct(temp_dct_low_pass, type=2, norm='ortho')
@@ -63,43 +63,64 @@ def detect_temperature_outliers(df, freq_cutoff=0.05, n_std=3):
     upper_curve = trend_seasonality + upper_boundary
     lower_curve = trend_seasonality + lower_boundary
     
-    # Create visualization
-    fig, ax = plt.subplots(figsize=(15, 6))
+    # ----------------------------------
+    # ✅ Plotly Visualization
+    # ----------------------------------
+    fig = go.Figure()
     
-    # Plot normal points som en sammenhengende linje (KORRIGERT FOR KONTINUITET)
-    ax.plot(time, temp, 
-            color='blue', linewidth=1, alpha=0.5, label='Temperature Series')
+    # 1. Plot normal points (som en sammenhengende linje)
+    fig.add_trace(go.Scatter(
+        x=time,
+        y=temp,
+        mode='lines',
+        line=dict(color='blue', width=1),
+        name='Temperature Series',
+        opacity=0.6
+    ))
+
+    # 2. Plot outliers (markører over linjen)
+    fig.add_trace(go.Scatter(
+        x=time[outliers_mask],
+        y=temp[outliers_mask],
+        mode='markers',
+        marker=dict(color='red', size=6, symbol='circle'),
+        name=f'Outliers (n={n_outliers})'
+    ))
     
-    # Plot outliers (markører over linjen)
-    ax.plot(time[outliers_mask], temp[outliers_mask], 
-            'o', color='red', markersize=4, alpha=1.0, label=f'Outliers (n={n_outliers})')
-    
-    # Plot buede grenser (KORRIGERT TIL BUEDE LINJER)
-    ax.plot(time, upper_curve, color='orange', 
-            linestyle='--', linewidth=1.5, alpha=0.7, 
-            label=f'Upper boundary (+{n_std}σ)')
+    # 3. Plot buede øvre grense
+    fig.add_trace(go.Scatter(
+        x=time,
+        y=upper_curve,
+        mode='lines',
+        line=dict(color='purple', dash='dash', width=1),
+        name=f'Upper boundary (+{n_std}σ)'
+    ))
             
-    ax.plot(time, lower_curve, color='orange', 
-            linestyle='--', linewidth=1.5, alpha=0.7, 
-            label=f'Lower boundary (-{n_std}σ)')
-            
-    # KORREKSJON AV X-AKSE FOR MÅNEDER
-    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=6))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-    ax.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
+    # 4. Plot buede nedre grense
+    fig.add_trace(go.Scatter(
+        x=time,
+        y=lower_curve,
+        mode='lines',
+        line=dict(color='purple', dash='dash', width=1),
+        name=f'Lower boundary (-{n_std}σ)'
+    ))
+
     
-    # NYTT: Fjerner whitespace/padding på x-aksen
-    ax.set_xlim(time.min(), time.max())
-    
-    ax.set_xlabel('Time', fontsize=12, fontweight='bold')
-    ax.set_ylabel('Temperature (°C)', fontsize=12, fontweight='bold')
-    ax.set_title(f'Temperature Outlier Detection using DCT and SPC\n' +
-                 f'Frequency cutoff: {freq_cutoff}, SPC boundaries: ±{n_std}σ',
-                 fontsize=14, fontweight='bold', pad=15)
-    ax.legend(loc='best', fontsize=10)
-    ax.grid(True, alpha=0.3)
-    plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
+    # Oppdater layout
+    fig.update_layout(
+        title={
+            'text': f'Temperature Outlier Detection using DCT and SPC<br><sup>Frequency cutoff: {freq_cutoff}, SPC boundaries: ±{n_std}σ</sup>',
+            'y':0.95,
+            'x':0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'
+        },
+        xaxis_title='Time',
+        yaxis_title='Temperature (°C)',
+        height=450,
+        margin=dict(l=20, r=20, t=80, b=20),
+        hovermode='x unified'
+    )
     
     results = {
         'figure': fig,
@@ -115,7 +136,8 @@ def detect_temperature_outliers(df, freq_cutoff=0.05, n_std=3):
 
 def detect_precipitation_anomalies(df, outlier_proportion=0.01, n_neighbors=50):
     """
-    Detect precipitation anomalies using LOF
+    Detect precipitation anomalies using LOF.
+    Returns a Plotly figure.
     """
     # Extract precipitation data
     precip = df['precipitation (mm)'].values
@@ -139,34 +161,44 @@ def detect_precipitation_anomalies(df, outlier_proportion=0.01, n_neighbors=50):
     n_anomalies = np.sum(anomalies_mask)
     anomaly_percentage = (n_anomalies / len(precip)) * 100
     
-    # Create visualization
-    fig, ax = plt.subplots(figsize=(15, 6))
+    # ----------------------------------
+    # ✅ Plotly Visualization (Bar Chart)
+    # ----------------------------------
+    fig = go.Figure()
     
-    # Plot normal precipitation
-    ax.bar(time[~anomalies_mask], precip[~anomalies_mask], 
-            width=0.04, color='blue', alpha=0.6, label='Normal precipitation')
+    # 1. Plot normal precipitation (Blue bars)
+    fig.add_trace(go.Bar(
+        x=time[~anomalies_mask],
+        y=precip[~anomalies_mask],
+        marker_color='blue',
+        opacity=0.6,
+        name='Normal precipitation'
+    ))
     
-    # Plot anomalies
-    ax.bar(time[anomalies_mask], precip[anomalies_mask], 
-            width=0.04, color='red', alpha=0.8, label=f'Anomalies (n={n_anomalies})')
-            
-    # KORREKSJON AV X-AKSE FOR MÅNEDER i LOF-plottet
-    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=6))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-    ax.xaxis.set_minor_locator(mdates.MonthLocator(interval=1))
-
-    # NYTT: Fjerner whitespace/padding på x-aksen
-    ax.set_xlim(time.min(), time.max())
+    # 2. Plot anomalies (Red bars)
+    fig.add_trace(go.Bar(
+        x=time[anomalies_mask],
+        y=precip[anomalies_mask],
+        marker_color='red',
+        opacity=0.8,
+        name=f'Anomalies (n={n_anomalies})'
+    ))
     
-    ax.set_xlabel('Time', fontsize=12, fontweight='bold')
-    ax.set_ylabel('Precipitation (mm)', fontsize=12, fontweight='bold')
-    ax.set_title(f'Precipitation Anomaly Detection using Local Outlier Factor (LOF)\n' +
-                 f'Expected outlier proportion: {outlier_proportion*100:.1f}%',
-                 fontsize=14, fontweight='bold', pad=15)
-    ax.legend(loc='best', fontsize=10)
-    ax.grid(True, alpha=0.3, axis='y')
-    plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
+    # Oppdater layout
+    fig.update_layout(
+        title={
+            'text': f'Precipitation Anomaly Detection using Local Outlier Factor (LOF)<br><sup>Expected outlier proportion: {outlier_proportion*100:.1f}%</sup>',
+            'y':0.95,
+            'x':0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'
+        },
+        xaxis_title='Time',
+        yaxis_title='Precipitation (mm)',
+        height=450,
+        margin=dict(l=20, r=20, t=80, b=20),
+        barmode='overlay' # Sikrer at de røde og blå stolpene ligger oppå hverandre
+    )
     
     # Get anomaly details
     anomaly_dates_list = time[anomalies_mask].tolist()
@@ -184,16 +216,12 @@ def detect_precipitation_anomalies(df, outlier_proportion=0.01, n_neighbors=50):
 
 # Main page content
 st.title("Weather Anomalies Detection")
-st.header("Temperature Outliers and Precipitation Anomalies")
-
-st.markdown("""
-Detect unusual weather patterns using advanced statistical methods.
-""")
-
-st.markdown("---")
+# ... (resten av koden for datalasting, etc., er uendret) ...
+# [Mellomliggende funksjoner: get_weather_data, ensure_time_column, render_weather_selector]
 
 # Check if weather data is available
 weather_df = get_weather_data()
+
 # --- Normalize time column naming ---
 def ensure_time_column(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
@@ -273,7 +301,8 @@ else:
                     n_std=n_std
                 )
                 
-                st.pyplot(results['figure'])
+                # ✅ Endret fra st.pyplot til st.plotly_chart
+                st.plotly_chart(results['figure'], use_container_width=True)
                 
                 # Statistics
                 st.markdown("---")
@@ -349,7 +378,8 @@ else:
                     n_neighbors=n_neighbors
                 )
                 
-                st.pyplot(results['figure'])
+                # ✅ Endret fra st.pyplot til st.plotly_chart
+                st.plotly_chart(results['figure'], use_container_width=True)
                 
                 # Statistics
                 st.markdown("---")
@@ -361,7 +391,9 @@ else:
                 with col2:
                     st.metric("Percentage", f"{results['anomaly_percentage']:.2f}%")
                 with col3:
-                    st.metric("Mean LOF Score", f"{np.mean(results['lof_scores']):.2f}")
+                    # Merk: Må gjøres robust mot tomme lof_scores
+                    mean_lof = np.mean(results['lof_scores']) if len(results['lof_scores']) > 0 else 0
+                    st.metric("Mean LOF Score", f"{mean_lof:.2f}")
                 
                 # Show anomaly details
                 if results['n_anomalies'] > 0:

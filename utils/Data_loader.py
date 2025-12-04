@@ -25,85 +25,157 @@ def area_to_geoplacement(area):
     }
     # Return standard coordinates (NO1) if the area is not found
     return geo_dict.get(area, geo_dict['NO1'])['long'], geo_dict.get(area, geo_dict['NO1'])['lat']
-def render_sidebar_info():
+
+WEATHER_AREAS = {
+    'NO1': {'city': 'Oslo', 'latitude': 59.9139, 'longitude': 10.7522},
+    'NO2': {'city': 'Kristiansand', 'latitude': 58.1462, 'longitude': 7.9956},
+    'NO3': {'city': 'Trondheim', 'latitude': 63.4305, 'longitude': 10.3951},
+    'NO4': {'city': 'Tromsø', 'latitude': 69.6492, 'longitude': 18.9553},
+    'NO5': {'city': 'Bergen', 'latitude': 60.3913, 'longitude': 5.3221}
+}
+
+
+@st.cache_data(ttl=3600, show_spinner="Downloading hourly weather data...")
+def download_hourly_weather_data(longitude, latitude, year):
     """
-    Shows application info and global settings in the sidebar.
+    Download hourly weather data from Open-Meteo archive (ERA5) for the given year.
+    Returns a pandas DataFrame with a datetime index (timestamp) and hourly rows.
+    """
+    base_url = "https://archive-api.open-meteo.com/v1/archive"
+
+    params = {
+        'latitude': latitude,
+        'longitude': longitude,
+        'start_date': f"{year}-01-01",
+        'end_date': f"{year}-12-31",
+        # request hourly variables
+        'hourly': [
+            'temperature_2m',
+            'apparent_temperature',
+            'precipitation',
+            'windspeed_10m',
+            'windgusts_10m',
+            'winddirection_10m',
+            'relativehumidity_2m'
+        ],
+        'timezone': 'auto'
+    }
+
+    response = requests.get(base_url, params=params)
+    if response.status_code != 200:
+        raise Exception(f"API request failed with status code {response.status_code}")
+
+    data = response.json()
+    if 'hourly' not in data:
+        raise Exception("Unexpected API response: 'hourly' key not found")
+
+    hourly = data['hourly']
+
+    # build DataFrame with full timestamps (not just dates)
+    df = pd.DataFrame({
+        'timestamp': pd.to_datetime(hourly['time']),
+        'temperature (°C)': hourly.get('temperature_2m'),
+        'apparent_temperature (°C)': hourly.get('apparent_temperature'),
+        'precipitation (mm)': hourly.get('precipitation'),
+        'windspeed (m/s)': hourly.get('windspeed_10m'),
+        'windgusts (m/s)': hourly.get('windgusts_10m'),
+        'winddir (°)': hourly.get('winddirection_10m'),
+        'relative_humidity (%)': hourly.get('relativehumidity_2m')
+    })
+
+    # optional: set timestamp as index
+    df.set_index('timestamp', inplace=False)  # keep as column for display; adjust if you prefer index
+
+    return df
+
+# Helper function to download and store weather data in session state
+def download_and_store_weather_data(lon, lat, area, city, year):
+    with st.spinner(f"Downloading hourly data for {city} ({year})..."):
+        try:
+            weather_data = download_hourly_weather_data(
+                longitude=lon,
+                latitude=lat,
+                year=year
+            )
+            st.session_state.weather_data = weather_data
+            st.session_state.selected_area = area
+            st.session_state.selected_city = city
+            st.session_state.selected_year = year
+            st.success(f"✅ Downloaded {len(weather_data):,} records for {area} ({year})!")
+            
+        except Exception as e:
+            st.error(f"Error downloading weather data: {e}")
+
+def render_weather_selector(key_suffix=""):
+    """
+    Renders price area and year selector in the Streamlit sidebar, 
+    and displays status of the currently loaded weather data.
     """
     with st.sidebar:
-        # Main section for app information
-        st.header("⚙️ Application Controls")
-        st.markdown(
-            """
-            This sidebar shows information about the data and allows you to
-            set global parameters.
-            """
-        )
-
-        # Data loading status (Can be dynamic in a more complex app)
-        st.subheader("Data Status")
-        if 'production_data' in st.session_state and st.session_state.production_data is not None:
-            data_points = len(st.session_state.production_data)
-            start_date = st.session_state.production_data['startTime_parsed'].min().strftime('%Y-%m-%d')
-            end_date = st.session_state.production_data['endTime_parsed'].max().strftime('%Y-%m-%d')
-            
-            st.success(f"Data loaded!")
-            st.caption(f"Period: {start_date} to {end_date}")
-            st.caption(f"Number of points: {data_points:,}")
-        else:
-             st.warning("⚠️ No energy data loaded.")
-
-        # Example of a global input field in the sidebar
-        st.subheader("Analysis Settings")
-        global_sample_rate = st.selectbox(
-            "Sampling Rate for Analysis",
-            ["Time", "Day", "Week"],
-            key="global_sample_rate_sidebar"
-        )
-        st.info(f"Analysis runs on a {global_sample_rate} basis.")
+        st.subheader("📍 Data Selector")
+        price_areas = list(WEATHER_AREAS.keys())
         
-        st.markdown("---")
-        st.caption("Developed for Advanced Time Series Analysis.")
+        # Area Selection (Select Box)
+        selected_area = st.selectbox(
+            "Price Area",
+            options=price_areas,
+            format_func=lambda x: f"{x} - {WEATHER_AREAS[x]['city']}",
+            key="sidebar_selected_area",
+            help="Select the geographical price area for which weather data will be downloaded."
+        )
+        
+        # Year Selection (Select Box)
+        selected_year = st.selectbox(
+            "Year",
+            options=list(range(2024, 2009, -1)), 
+            index=1, 
+            key=f"sidebar_selected_year_{key_suffix}"
+        )
+        
+        # Get coordinates for the selected area
+        selected_city = WEATHER_AREAS[selected_area]['city']
+        selected_lat = WEATHER_AREAS[selected_area]['latitude']
+        selected_lon = WEATHER_AREAS[selected_area]['longitude']
 
-# --- MAIN CLASS FOR DATA LOADING ---
+        st.caption(f"Location: {selected_city} ({selected_year})")
+        
+        # Download Button
+        if st.button("Download Weather Data", key="sidebar_download_button"):
+            download_and_store_weather_data(selected_lon, selected_lat, selected_area, selected_city, selected_year)
 
-    """Handles connection to MongoDB and loading of energy and weather data."""
-    
-    def __init__(_self):
-        _self.client = _self._init_connection()
-        _self.db = None
-        _self.collections = {}
-        if _self.client:
-            _self.db = _self.client['power'] # Assumed database name
-            # Define your collection names here:
-            _self.collections = {
-                'production': 'production_2021_2024_hourly',
-                'consumption': 'consumption_2022_2024_hourly'
-            }
+        st.markdown("---") 
 
-    @st.cache_resource
-    def _init_connection(_self) -> pymongo.MongoClient | None:
-        """Creates a cached MongoDB client connection."""
-        try:
-            # Check that the MongoDB URI is defined in st.secrets
-            if 'MONGO' not in st.secrets or 'uri' not in st.secrets['MONGO']:
-                st.error("MongoDB URI is missing in `st.secrets`.")
-                return None
+        # Loaded Data Status
+        st.subheader("Loaded Data Status")
+        
+        if 'weather_data' in st.session_state and st.session_state.weather_data is not None:
+            df = st.session_state.weather_data
+            num_rows = len(df)
             
-            client = pymongo.MongoClient(st.secrets['MONGO']['uri'])
-            # Validate the connection by pinging the database
-            client.admin.command('ping')
-            logging.info("MongoDB connection established.")
-            return client
-        except Exception as e:
-            st.error(f"Failed to connect to MongoDB: {e}")
-            logging.error(f"MongoDB Connection Error: {e}")
-            return None
+            # Retrieve stored metadata
+            loaded_area = st.session_state.get('selected_area', 'Unknown')
+            loaded_city = st.session_state.get('selected_city', 'Unknown')
+            loaded_year = st.session_state.get('selected_year', 'Unknown')
+            
+            st.success(f"✅ Data Loaded!")
+            st.caption(f"**Area:** {loaded_area} - {loaded_city}")
+            st.caption(f"**Year:** {loaded_year}")
+            st.caption(f"**Hourly Points:** {num_rows:,}")
+            
+            # Button to clear the data
+            if st.button("Clear Weather Data", key="clear_weather_data"):
+                st.session_state.weather_data = None
+                st.session_state.selected_area = None
+                st.session_state.selected_city = None
+                st.session_state.selected_year = None
+                st.rerun()
+                
+        else:
+            st.warning("⚠️ No weather data loaded.")
     
-
-
 
 # Load and process data
-@st.cache_data
+@st.cache_data(ttl=3600, show_spinner="Loading data from MongoDB...")
 def load_data():
     """Load and process data from MongoDB"""
     client = get_mongo_client()
@@ -250,7 +322,6 @@ def load_elhub_production_data() -> pd.DataFrame:
         client = MongoClient(st.secrets["MONGO"]["uri"])
         db = client["power"]
         
-        # 🛠️ RETTELSE HER: Bruk det korrekte samlingsnavnet
         col = db["production_2022_2024_hourly"] 
 
         records = list(col.find({}, {"_id": 0}))
@@ -268,11 +339,13 @@ def load_elhub_production_data() -> pd.DataFrame:
     
     if "startTime" in df.columns:
         df["startTime"] = pd.to_datetime(df["startTime"])
+        df["year"] = df["startTime"].dt.year
 
     return df
 
+
 # Cache function for loading Open-Meteo data from the API
-@st.cache_data(ttl=86400, show_spinner="Loading Open-Meteo data from API...")
+@st.cache_data(ttl=3600, show_spinner="Loading Open-Meteo data from API...")
 def load_open_meteo_api(
     latitude: float,
     longitude: float,

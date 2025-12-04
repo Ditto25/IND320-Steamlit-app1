@@ -1,14 +1,29 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from utils.Data_loader import load_data
-
+from utils.Data_loader import render_weather_selector, load_data, download_and_store_weather_data, WEATHER_AREAS
 # Page configuration (must be before other st.* display calls)
 st.set_page_config(
     page_title="Data Table - Weather Data",
     layout="wide"
 )
+render_weather_selector()
 
+# Default data 
+if 'weather_data' not in st.session_state or st.session_state.weather_data is None:
+    
+    # Henter standardverdier
+    default_area = 'NO2'
+    default_year = 2023 
+    
+    # Henter Geo-data
+    city = WEATHER_AREAS[default_area]['city']
+    lat = WEATHER_AREAS[default_area]['latitude']
+    lon = WEATHER_AREAS[default_area]['longitude']
+
+    # Kaller funksjonen for å laste ned data
+    # st.info(f"Automatically loading default data for {default_area} ({default_year})...") 
+    download_and_store_weather_data(lon, lat, default_area, city, default_year)
 
 def pretty_name(col: str) -> str:
     """Convert a column name to a nicer display name (remove underscores, title case)."""
@@ -88,7 +103,7 @@ st.markdown("---")
 data = get_weather_data()
 
 if data is None or len(data) == 0:
-    st.warning("⚠️ No weather data loaded. Please visit the page that downloads weather data first.")
+    st.warning("⚠️ No weather data loaded. Please use the **Data Selector** in the sidebar to choose an area and download data.")    
     st.info("Once you download data on that page, it will be available here for viewing.")
 else:
     st.success(f"✅ Weather data loaded: {len(data)} records")

@@ -103,24 +103,6 @@ for i, (_mod, display, path) in enumerate(pages):
 	emoji_map[path] = emoji_palette[i % len(emoji_palette)]
 
 
-# Sidebar navigation
-st.sidebar.title("Navigation 🧭")
-
-# Initialize session state for current page
-if 'page' not in st.session_state:
-	st.session_state['page'] = 'Home'
-
-# Home button with emoji
-if st.sidebar.button("🏠 Home", key="nav_home"):
-	st.session_state['page'] = 'Home'
-
-# One button per discovered page (each page gets a distinct emoji from the palette)
-for i, (_mod, display, path) in enumerate(pages):
-	emoji = emoji_map.get(path, emoji_for(display))
-	if st.sidebar.button(f"{emoji} {display}", key=f"nav_{i}"):
-		st.session_state['page'] = path
-
-
 def load_module_from_path(path_str: str, module_alias: str):
 	"""Import a module given a file path using importlib and return the module."""
 	spec = importlib.util.spec_from_file_location(module_alias, path_str)

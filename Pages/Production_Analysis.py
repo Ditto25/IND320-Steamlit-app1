@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objs as go
-import utils.Data_loader as load_data
+from utils.Data_loader import load_data, render_weather_selector
 
 # Page configuration
 st.set_page_config(
@@ -10,6 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
+render_weather_selector()
 # ---------------------------
 # Helpers
 # ---------------------------
@@ -62,7 +63,8 @@ st.title("🌤️ Interactive Weather Data Plot")
 st.markdown("""
 Explore the Data with Custom Visualizations  
 Use the controls below to customize your view of the weather data.
-""")
+If you want to change the selected area or year, go to the sidebar and adjust the settings there.
+            """)
 
 data = get_weather_data()
 
@@ -89,23 +91,35 @@ else:
     st.success(f"✅ Weather data loaded: {len(data):,} records")
     # Provide a multi-select that defaults to all numeric variables and render the plot/stats here,
     # then stop further execution so the later duplicate widgets aren't shown.
+    
     data_columns = [col for col in data.columns if col not in ['time', 'year_month'] and np.issubdtype(data[col].dtype, np.number)]
 
     if len(data_columns) == 0:
         st.warning("No numeric variables available to plot.")
         st.stop()
 
+    default_selection = []
+    if 'Temperature (°C)' in data_columns:
+        default_selection = ['Temperature (°C)']
+    elif data_columns:
+        default_selection = [data_columns[0]]
+
+
     col1, col2 = st.columns(2)
     with col1:
-        # Multi-select defaulting to all variables
-        selected_columns = st.multiselect("Select Variable to Plot", data_columns, default=data_columns)
+  
+        selected_columns = st.multiselect(
+            "Select Variable to Plot", 
+            data_columns, 
+            default=default_selection
+        )
     with col2:
         available_months = sorted(data['year_month'].unique())
         month_range = st.select_slider("Select Month Range", available_months, value=(available_months[0], available_months[-1]))
 
     # Filter by month range
     df_filtered = data[(data['year_month'] >= month_range[0]) & (data['year_month'] <= month_range[1])]
-
+    
     # Plot selected columns (multiple allowed) using Plotly
     st.subheader("📈 Weather Data Visualization")
     fig = go.Figure()
