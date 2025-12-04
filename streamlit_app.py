@@ -3,6 +3,8 @@ import importlib.util
 import re
 from pathlib import Path
 import streamlit as st
+
+
 def check_data_requirements(require_weather=False, require_coordinates=False, require_energy=False):
     """
     Sjekker om nødvendige data er tilgjengelig i session state.
@@ -57,34 +59,6 @@ def discover_pages():
 			candidates.append((module_name, display, str(py)))
 	return candidates
 
-# streamer_app.py (Legg til denne koden)
-# ... etter 'pages = discover_pages()'
-
-# --- Bygg Sidefelt Navigasjon ---
-st.sidebar.title("App Navigation 🗺️")
-
-# Legg til en 'Home' knapp/lenke
-if st.sidebar.button("🏠 Home", key="nav_home"):
-    st.session_state['page'] = 'Home'
-    st.experimental_rerun()
-    
-st.sidebar.markdown("---")
-st.sidebar.markdown("### Analysis Modules")
-
-# Generer en knapp for hver oppdagede side
-for mod_name, display, path in pages:
-    emoji = emoji_map.get(path, emoji_for(display))
-    # Bruk en knapp for å navigere. Hvis den er klikket, oppdater session state og kjør appen på nytt.
-    if st.sidebar.button(f"{emoji} {display}", key=f"nav_{display}"):
-        st.session_state['page'] = path
-        st.experimental_rerun() # Dette trigger sidebyttet
-
-st.sidebar.markdown("---")
-# Legg til sjekk for datakrav (valgfritt, men nyttig for brukeren)
-# Du kan inkludere check_data_requirements her, men koden nedenfor er for demonstrasjon.
-
-# ... Før 'current = st.session_state.get('page', 'Home')'
-# Simple emoji chooser based on page display name keywords (fallback)
 def emoji_for(display: str) -> str:
 	mapping = {
 		'data': '📊',
@@ -116,18 +90,14 @@ def emoji_for(display: str) -> str:
 	# fallback
 	return '🔹'
 
-
-# Discover pages
 pages = discover_pages()
 
-# Build a palette and assign a (different) emoji to each discovered page (by path)
 emoji_palette = [
-	"📈", "🎯","📊", "🔬", "🔍"
+    "📈", "🎯","📊", "🔬", "🔍"
 ]
 emoji_map = {}
 for i, (_mod, display, path) in enumerate(pages):
 	emoji_map[path] = emoji_palette[i % len(emoji_palette)]
-
 
 def load_module_from_path(path_str: str, module_alias: str):
 	"""Import a module given a file path using importlib and return the module."""
@@ -136,6 +106,21 @@ def load_module_from_path(path_str: str, module_alias: str):
 	spec.loader.exec_module(module)
 	return module
 
+st.sidebar.title("Navigation")
+
+if st.sidebar.button("Home", key="home_button"):
+	st.session_state['page'] = "Home"
+	st.experimental_rerun()
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### Analysis Modules")
+
+for mod_name, display, path in pages:
+	emoji = emoji_map.get(path, emoji_for(display))
+	if st.sidebar.button(f"{emoji} {display}", key=f"btn_{mod_name}"):
+		st.session_state['page'] = path
+		st.experimental_rerun()
+st.sidebar.markdown("---")
 
 current = st.session_state.get('page', 'Home')
 
