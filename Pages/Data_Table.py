@@ -13,7 +13,7 @@ render_weather_selector()
 if 'weather_data' not in st.session_state or st.session_state.weather_data is None:
     
     # Henter standardverdier
-    default_area = 'NO2'
+    default_area = 'NO1'
     default_year = 2023 
     
     # Henter Geo-data

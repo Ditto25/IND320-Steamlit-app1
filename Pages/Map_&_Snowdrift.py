@@ -193,7 +193,7 @@ def download_weather_for_seasons(
             years.append(year)
         else:
             # Ignorerer fremtidige år
-            st.warning(f"Skipper år {year} da det er i fremtiden.")
+            st.warning(f"Skipping year {year} as it is in the future.")
 
 
     frames: List[pd.DataFrame] = []
@@ -206,7 +206,7 @@ def download_weather_for_seasons(
         except Exception as e:
             # Hvis API-et feiler for et år, for eksempel fordi det er for nylig og ufullstendig,
             # logger vi advarselen og går videre.
-            st.warning(f"Kunne ikke laste data for år {year}: {e}") 
+            st.warning(f"Could not load data for year {year}: {e}") 
 
     # ... (resten av funksjonen er den samme) ...
     if not frames:

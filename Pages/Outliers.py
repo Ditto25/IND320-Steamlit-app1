@@ -327,7 +327,7 @@ else:
                 
                 st.info("""
                 **Interpretation:**
-                - Points outside the orange boundaries are classified as outliers
+                - Points outside the purple boundaries are classified as outliers
                 - These represent unusual temperature deviations from seasonal norms
                 - Lower frequency cutoff = more aggressive detrending
                 """)
